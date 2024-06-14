@@ -1,16 +1,19 @@
 import Reason = chrome.offscreen.Reason;
 import ContextType = chrome.runtime.ContextType;
 
-const AUDIO_ACTIVE = "audioActive";
-const SHOW_NOTIFICATION = "showNotification";
-const OPEN_PROLIFIC = "openProlific";
-const AUDIO = "audio";
-const VOLUME = "volume";
-const COUNTER = "counter";
-const ICON_URL = 'imgs/logo.png';
-const TITLE = 'Prolific Automatic Studies';
-const MESSAGE = 'A new study has been posted on Prolific!';
-const PROLIFIC_TITLE = 'prolificTitle';
+const CONFIG = {
+    AUDIO_ACTIVE: "audioActive",
+    SHOW_NOTIFICATION: "showNotification",
+    OPEN_PROLIFIC: "openProlific",
+    AUDIO: "audio",
+    VOLUME: "volume",
+    COUNTER: "counter",
+    ICON_URL: 'imgs/logo.png',
+    TITLE: 'Prolific Automatic Studies',
+    MESSAGE: 'A new study has been posted on Prolific!',
+    PROLIFIC_TITLE: 'prolificTitle'
+};
+
 let creating: Promise<void> | null; // A global promise to avoid concurrency issues
 let volume: number;
 let audio: string;
@@ -61,8 +64,8 @@ async function handleMessages(message: { target: string; type: any; data?: any; 
     // Dispatch the message to an appropriate handler.
     switch (message.type) {
         case 'play-sound':
-            audio = await getValueFromStorage(AUDIO, 'alert1.mp3');
-            volume = await getValueFromStorage(VOLUME, 100) / 100;
+            audio = await getValueFromStorage(CONFIG.AUDIO, 'alert1.mp3');
+            volume = await getValueFromStorage(CONFIG.VOLUME, 100) / 100;
             await playAudio(audio, volume);
             sendNotification();
             break;
@@ -76,7 +79,7 @@ async function handleMessages(message: { target: string; type: any; data?: any; 
 }
 
 chrome.runtime.onStartup.addListener(async function(): Promise<void> {
-    if (await getValueFromStorage(OPEN_PROLIFIC, false)) {
+    if (await getValueFromStorage(CONFIG.OPEN_PROLIFIC, false)) {
         await chrome.tabs.create({url: "https://app.prolific.com/", active: false});
     }
 });
@@ -96,21 +99,21 @@ async function playAudio(audio:string='alert1.mp3',volume: number = 1.0): Promis
 }
 
 chrome.tabs.onUpdated.addListener(async (_: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab): Promise<void> => {
-    previousTitle = await getValueFromStorage(PROLIFIC_TITLE, 'Prolific');
+    previousTitle = await getValueFromStorage(CONFIG.PROLIFIC_TITLE, 'Prolific');
     if (tab.url && tab.url.includes('https://app.prolific.com/') && changeInfo.title && changeInfo.title !== previousTitle && tab.status === 'complete') {
         const previousNumber: number = getNumberFromTitle(previousTitle );
         const currentNumber: number = getNumberFromTitle(changeInfo.title);
-        await chrome.storage.sync.set({[PROLIFIC_TITLE]: changeInfo.title});
+        await chrome.storage.sync.set({[CONFIG.PROLIFIC_TITLE]: changeInfo.title});
         if (changeInfo.title.trim() !== 'Prolific' && currentNumber > previousNumber) {
             const match: RegExpMatchArray | null = changeInfo.title.match(/\((\d+)\)/);
-            shouldSendNotification = await getValueFromStorage(SHOW_NOTIFICATION, true);
+            shouldSendNotification = await getValueFromStorage(CONFIG.SHOW_NOTIFICATION, true);
             if (shouldSendNotification) {
                 sendNotification();
             }
-            shouldPlayAudio = await getValueFromStorage(AUDIO_ACTIVE, true);
+            shouldPlayAudio = await getValueFromStorage(CONFIG.AUDIO_ACTIVE, true);
             if (shouldPlayAudio) {
-                audio = await getValueFromStorage(AUDIO, 'alert1.mp3');
-                volume = await getValueFromStorage(VOLUME, 100) / 100;
+                audio = await getValueFromStorage(CONFIG.AUDIO, 'alert1.mp3');
+                volume = await getValueFromStorage(CONFIG.VOLUME, 100) / 100;
                 await playAudio(audio, volume);
             }
             await updateCounterAndBadge(currentNumber - previousNumber);
@@ -121,10 +124,10 @@ chrome.tabs.onUpdated.addListener(async (_: number, changeInfo: chrome.tabs.TabC
 
 async function setInitialValues(): Promise<void> {
     await Promise.all([
-        chrome.storage.sync.set({ [AUDIO_ACTIVE]: true }),
-        chrome.storage.sync.set({ [AUDIO]: "alert1.mp3" }),
-        chrome.storage.sync.set({ [SHOW_NOTIFICATION]: true }),
-        chrome.storage.sync.set({ [VOLUME]: 100 }),
+        chrome.storage.sync.set({ [CONFIG.AUDIO_ACTIVE]: true }),
+        chrome.storage.sync.set({ [CONFIG.AUDIO]: "alert1.mp3" }),
+        chrome.storage.sync.set({ [CONFIG.SHOW_NOTIFICATION]: true }),
+        chrome.storage.sync.set({ [CONFIG.VOLUME]: 100 }),
     ]);
 
 }
@@ -132,9 +135,9 @@ async function setInitialValues(): Promise<void> {
 function sendNotification(): void {
     chrome.notifications.create({
         type: 'basic',
-        iconUrl: chrome.runtime.getURL(ICON_URL),
-        title: TITLE,
-        message: MESSAGE,
+        iconUrl: chrome.runtime.getURL(CONFIG.ICON_URL),
+        title: CONFIG.TITLE,
+        message: CONFIG.MESSAGE,
         buttons: [{title: 'Open Prolific'}, {title: 'Dismiss'}],
     });
 }
@@ -148,8 +151,8 @@ async function updateBadge(counter: number): Promise<void> {
 }
 
 async function updateCounterAndBadge(count: number = 1): Promise<void> {
-    let counter: number = await getValueFromStorage(COUNTER, 0) + count;
-    await chrome.storage.sync.set({ [COUNTER]: counter });
+    let counter: number = await getValueFromStorage(CONFIG.COUNTER, 0) + count;
+    await chrome.storage.sync.set({ [CONFIG.COUNTER]: counter });
     await updateBadge(count);
 }
 
